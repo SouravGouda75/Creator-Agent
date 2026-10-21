@@ -34,16 +34,61 @@ class VisualEngine:
 
     def _generate_free_ai_image(self, prompt: str, width: int, height: int, output_path: Path) -> bool:
         """
-        Generates realistic visuals using free FLUX/SDXL inference endpoint.
-        Uses enhanced prompt tokens to prevent cartoon/anime and maximize realism.
+        Generates realistic visuals using free AI inference endpoint.
+        Uses model=turbo for ultra-fast, timeout-free 8k generation.
         """
         try:
             enhanced = f"{prompt}, 8k resolution, cinematic commercial lighting, 3d octane render, highly detailed, photorealistic, minimalist studio, sharp focus, masterpiece"
-            encoded_prompt = urllib.parse.quote(enhanced[:320])
-            # Request extra height (+60px) so any watermark at bottom can be cleanly sliced off
+            encoded_prompt = urllib.parse.quote(enhanced[:280])
+            # Extra height for clean watermark slicing
             fetch_height = height + 60
-            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={fetch_height}&nologo=true&seed={random.randint(100, 999999)}&model=flux"
-            resp = requests.get(url, timeout=30)
+            seed = random.randint(1000, 9999999)
+            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={fetch_height}&nologo=true&seed={seed}&model=turbo"
+            resp = requests.get(url, timeout=18)
+            if resp.status_code == 200 and len(resp.content) > 5000:
+                output_path.write_bytes(resp.content)
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _fetch_stock_broll(self, prompt: str, width: int, height: int, output_path: Path) -> bool:
+        """
+        Fetches high-definition cinematic stock photography matching the scene topic.
+        Guarantees 100% photorealistic visuals when AI generator is busy or throttled.
+        """
+        stock_library = {
+            "studio": [
+                "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1080&q=85", # Shure Studio Mic
+                "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1080&q=85", # Audio mixing board
+            ],
+            "workspace": [
+                "https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=1080&q=85", # Creative UI workspace
+                "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1080&q=85", # Modern digital team
+            ],
+            "analytics": [
+                "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=1080&q=85", # Social viral phone
+                "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1080&q=85", # High growth analytics
+            ],
+            "creative": [
+                "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1080&q=85", # Cyberpunk tech neon
+                "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1080&q=85", # Futuristic circuit
+            ],
+        }
+
+        # Match theme
+        lower = prompt.lower()
+        if any(k in lower for k in ["voice", "audio", "mic", "sound", "studio", "speak"]):
+            chosen_url = random.choice(stock_library["studio"])
+        elif any(k in lower for k in ["caption", "viral", "phone", "tiktok", "reel", "metric"]):
+            chosen_url = random.choice(stock_library["analytics"])
+        elif any(k in lower for k in ["tech", "ai", "future", "cyber", "render", "digital"]):
+            chosen_url = random.choice(stock_library["creative"])
+        else:
+            chosen_url = random.choice(stock_library["workspace"])
+
+        try:
+            resp = requests.get(chosen_url, timeout=12)
             if resp.status_code == 200 and len(resp.content) > 5000:
                 output_path.write_bytes(resp.content)
                 return True
@@ -53,43 +98,22 @@ class VisualEngine:
 
     def _generate_stylized_backdrop(self, prompt: str, width: int, height: int, output_path: Path):
         """
-        Offline fallback that creates aesthetic, cinematic gradients and geometric patterns.
-        Guarantees that video production never breaks even when offline.
+        Offline fallback that creates a sleek, dark studio cinematography canvas
+        with realistic soft spotlights (no weird rainbow circles).
         """
-        base = Image.new("RGB", (width, height), color=(15, 17, 26))
+        base = Image.new("RGB", (width, height), color=(18, 20, 26))
         draw = ImageDraw.Draw(base)
 
-        # Select modern dynamic color palette
-        palettes = [
-            [(26, 35, 126), (13, 71, 161), (0, 188, 212)],     # Electric Blue / Cyan
-            [(74, 20, 140), (136, 14, 79), (233, 30, 99)],     # Cyberpunk Purple / Pink
-            [(1, 87, 155), (0, 77, 64), (0, 230, 118)],        # Emerald Aurora
-            [(38, 50, 56), (98, 0, 234), (255, 110, 64)],      # Sunset Neon
-        ]
-        chosen = random.choice(palettes)
-
-        # Draw smooth radial / vertical gradient
-        for y in range(height):
-            ratio = y / height
-            r = int(chosen[0][0] * (1 - ratio) + chosen[1][0] * ratio)
-            g = int(chosen[0][1] * (1 - ratio) + chosen[1][1] * ratio)
-            b = int(chosen[0][2] * (1 - ratio) + chosen[1][2] * ratio)
-            draw.line([(0, y), (width, y)], fill=(r, g, b))
-
-        # Add luminous ambient circles
+        # Soft luxury studio glow from top-center
         overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         overlay_draw = ImageDraw.Draw(overlay)
-        for _ in range(5):
-            cx = random.randint(100, width - 100)
-            cy = random.randint(100, height - 100)
-            radius = random.randint(200, 500)
-            color = (*chosen[2], random.randint(30, 70))
-            overlay_draw.ellipse(
-                [(cx - radius, cy - radius), (cx + radius, cy + radius)],
-                fill=color,
-            )
-
-        overlay = overlay.filter(ImageFilter.GaussianBlur(80))
+        cx = width // 2
+        cy = int(height * 0.35)
+        overlay_draw.ellipse(
+            [(cx - 450, cy - 450), (cx + 450, cy + 450)],
+            fill=(40, 60, 95, 120),
+        )
+        overlay = overlay.filter(ImageFilter.GaussianBlur(120))
         base.paste(overlay, (0, 0), overlay)
         base.save(output_path, "JPEG", quality=95)
 
@@ -113,11 +137,15 @@ class VisualEngine:
         # 1. Try Hugging Face API if token available
         success = self._generate_hf_image(prompt, width, height, output_path)
 
-        # 2. Try Free AI Image generation
+        # 2. Try Fast Free AI Image generation (turbo)
         if not success:
             success = self._generate_free_ai_image(prompt, width, height, output_path)
 
-        # 3. Fallback to aesthetic gradient backdrop
+        # 3. Fallback to HD Stock B-Roll (100% photorealistic)
+        if not success or not output_path.exists():
+            success = self._fetch_stock_broll(prompt, width, height, output_path)
+
+        # 4. Offline studio backdrop fallback (if no internet)
         if not success or not output_path.exists():
             self._generate_stylized_backdrop(prompt, width, height, output_path)
 

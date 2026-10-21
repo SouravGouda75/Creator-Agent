@@ -89,21 +89,31 @@ class ScriptAnalyzer:
             if not scene_text:
                 continue
 
-            # Build intelligent, context-aware visual prompt
+            # Build intelligent, distinct context-aware visual prompt
             lower_text = scene_text.lower()
-            if any(k in lower_text for k in ["secret", "performance", "creator", "agent", "ai", "automated"]):
-                core_concept = "futuristic creative digital agency workspace, holographic AI assistant interface with glowing metrics, sleek Apple minimalist studio, cinematic volumetric lighting"
-            elif any(k in lower_text for k in ["voice", "audio", "studio", "mic", "sound"]):
+            if any(k in lower_text for k in ["voice", "audio", "studio", "mic", "sound"]):
                 core_concept = "high-end Shure studio microphone with warm amber backlighting, acoustic sound studio, shallow depth of field"
-            elif any(k in lower_text for k in ["caption", "viral", "content", "tiktok", "reel", "youtube"]):
+            elif any(k in lower_text for k in ["caption", "viral", "tiktok", "reel", "karaoke", "highlight"]):
                 core_concept = "modern smartphone floating displaying viral video metrics and analytics, dynamic purple and cyan rim lighting, dark aesthetic background"
-            elif any(k in lower_text for k in ["marketing", "campaign", "business", "money", "grow"]):
+            elif any(k in lower_text for k in ["marketing", "campaign", "business", "money", "grow", "chart"]):
                 core_concept = "futuristic stock market and analytics digital screens, modern luxury glass office overlooking city skyline at dusk"
+            elif any(k in lower_text for k in ["secret", "performance", "creator", "agent", "ai", "automated", "synthesis"]):
+                core_concept = "futuristic creative digital agency workspace, holographic AI assistant interface with glowing metrics, sleek Apple minimalist studio, cinematic volumetric lighting"
             else:
                 stopwords = {"this", "that", "with", "from", "here", "have", "make", "also", "come", "will", "what", "when", "into", "your"}
                 clean_words = [w for w in re.findall(r"\b[A-Za-z]{4,}\b", scene_text) if w.lower() not in stopwords]
                 subj = " ".join(clean_words[:3]) if clean_words else "modern digital innovation"
                 core_concept = f"commercial shot of {subj}, modern aesthetic studio setup"
+
+            # Avoid duplicate visual prompts across consecutive scenes
+            if scenes and scenes[-1]["visual_prompt"].startswith(core_concept):
+                fallback_concepts = [
+                    "high-end Shure studio microphone with warm amber backlighting, acoustic sound studio",
+                    "modern smartphone floating displaying viral video metrics, dynamic cyan and violet neon rim lighting",
+                    "futuristic creative digital agency workspace, glowing holographic UI",
+                    "modern glass skyscraper creative studio with cinematic evening lighting",
+                ]
+                core_concept = fallback_concepts[(i) % len(fallback_concepts)]
 
             visual_prompt = (
                 f"{core_concept}, 8k resolution, photorealistic, 3D Octane render, "
