@@ -35,12 +35,15 @@ class VisualEngine:
     def _generate_free_ai_image(self, prompt: str, width: int, height: int, output_path: Path) -> bool:
         """
         Generates realistic visuals using free FLUX/SDXL inference endpoint.
-        Fast, zero setup, ideal for creators without requiring paid keys.
+        Uses enhanced prompt tokens to prevent cartoon/anime and maximize realism.
         """
         try:
-            encoded_prompt = urllib.parse.quote(prompt[:200])
-            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo=true&seed={random.randint(100, 999999)}&model=flux"
-            resp = requests.get(url, timeout=25)
+            enhanced = f"{prompt}, 8k resolution, cinematic commercial lighting, 3d octane render, highly detailed, photorealistic, minimalist studio, sharp focus, masterpiece"
+            encoded_prompt = urllib.parse.quote(enhanced[:320])
+            # Request extra height (+60px) so any watermark at bottom can be cleanly sliced off
+            fetch_height = height + 60
+            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={fetch_height}&nologo=true&seed={random.randint(100, 999999)}&model=flux"
+            resp = requests.get(url, timeout=30)
             if resp.status_code == 200 and len(resp.content) > 5000:
                 output_path.write_bytes(resp.content)
                 return True
@@ -99,6 +102,7 @@ class VisualEngine:
         """
         Prepares a high-resolution visual for the given scene prompt.
         Ensures exact target resolution matching the chosen category (Reel vs Video).
+        Automatically strips watermarks and applies cinematic depth vignette.
         """
         fmt = FORMATS.get(category, FORMATS["reel"])
         width, height = fmt["width"], fmt["height"]
@@ -117,24 +121,37 @@ class VisualEngine:
         if not success or not output_path.exists():
             self._generate_stylized_backdrop(prompt, width, height, output_path)
 
-        # Ensure exact dimensions
-        with Image.open(output_path) as img:
-            if img.size != (width, height):
-                # Resize with aspect ratio preserved, then center-crop
-                img_ratio = img.width / img.height
-                target_ratio = width / height
+        # Watermark removal and exact dimensions
+        with Image.open(output_path) as raw_img:
+            # Crop bottom 60px to eradicate any API watermark/logo
+            w_orig, h_orig = raw_img.size
+            cleaned = raw_img.crop((0, 0, w_orig, max(100, h_orig - 60)))
 
-                if img_ratio > target_ratio:
-                    new_height = height
-                    new_width = int(height * img_ratio)
-                else:
-                    new_width = width
-                    new_height = int(width / img_ratio)
+            # Resize with aspect ratio preserved, then center-crop
+            img_ratio = cleaned.width / cleaned.height
+            target_ratio = width / height
 
-                resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                left = (new_width - width) // 2
-                top = (new_height - height) // 2
-                cropped = resized.crop((left, top, left + width, top + height))
-                cropped.save(output_path, "JPEG", quality=95)
+            if img_ratio > target_ratio:
+                new_height = height
+                new_width = int(height * img_ratio)
+            else:
+                new_width = width
+                new_height = int(width / img_ratio)
+
+            resized = cleaned.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            left = (new_width - width) // 2
+            top = (new_height - height) // 2
+            cropped = resized.crop((left, top, left + width, top + height))
+
+            # Apply subtle bottom dark vignette gradient for clean subtitle contrast
+            vignette = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            v_draw = ImageDraw.Draw(vignette)
+            grad_start = int(height * 0.62)
+            for y in range(grad_start, height):
+                alpha = int(100 * ((y - grad_start) / (height - grad_start)))
+                v_draw.line([(0, y), (width, y)], fill=(0, 0, 0, alpha))
+
+            final_frame = Image.alpha_composite(cropped.convert("RGBA"), vignette).convert("RGB")
+            final_frame.save(output_path, "JPEG", quality=95)
 
         return output_path

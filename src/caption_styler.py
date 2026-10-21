@@ -1,20 +1,21 @@
+import re
 from pathlib import Path
 from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from moviepy import ImageClip
-from src.config import FORMATS, TEMP_DIR
+from src.config import FONTS_DIR, FORMATS, TEMP_DIR
 
 class CaptionStyler:
-    """Renders viral karaoke-style highlighted captions with glowing word effects."""
+    """Renders viral karaoke-style highlighted captions with bold 3D drop shadow and neon effects."""
 
     def __init__(
         self,
         category: str = "reel",
-        highlight_color: str = "#FFE600",   # Neon Yellow
-        base_color: str = "#FFFFFF",        # Pure White
+        highlight_color: str = "#FFE600",   # Neon Yellow (Hormozi signature)
+        base_color: str = "#FFFFFF",        # Pure Crisp White
         stroke_color: str = "#000000",      # Deep Black Outline
-        stroke_width: int = 6,
+        stroke_width: int = 8,
     ):
         self.category = category
         self.fmt = FORMATS.get(category, FORMATS["reel"])
@@ -26,15 +27,17 @@ class CaptionStyler:
 
     def _load_font(self, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         font_candidates = [
-            r"C:\Windows\Fonts\impact.ttf",
-            r"C:\Windows\Fonts\arialbd.ttf",
-            r"C:\Windows\Fonts\segoeuib.ttf",
-            r"C:\Windows\Fonts\arial.ttf",
+            FONTS_DIR / "Anton-Regular.ttf",
+            Path(r"C:\Windows\Fonts\ariblk.ttf"),    # Arial Black
+            Path(r"C:\Windows\Fonts\impact.ttf"),    # Impact
+            Path(r"C:\Windows\Fonts\arialbd.ttf"),   # Arial Bold
+            Path(r"C:\Windows\Fonts\segoeuib.ttf"),
         ]
         for font_path in font_candidates:
-            if Path(font_path).exists():
+            p = Path(font_path)
+            if p.exists():
                 try:
-                    return ImageFont.truetype(font_path, size)
+                    return ImageFont.truetype(str(p), size)
                 except Exception:
                     continue
         return ImageFont.load_default()
@@ -46,22 +49,26 @@ class CaptionStyler:
     ) -> Image.Image:
         """
         Renders a transparent RGBA image of the current caption card,
-        highlighting the word at active_index.
+        highlighting the active word in neon with a crisp 3D drop shadow.
+        No ugly black tape box.
         """
         width = self.fmt["width"]
-        height = int(self.fmt["font_size"] * 2.5)
+        height = int(self.fmt["font_size"] * 2.8)
 
         # High-res canvas with transparent background
         img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
-        # Measure dimensions of each word
+        # Clean words and measure dimensions
         word_spacings = []
         space_width = draw.textlength(" ", font=self.font)
         total_text_width = 0
 
         for w_data in words_in_batch:
-            w_text = w_data["word"].upper()
+            raw = str(w_data.get("word", "")).strip()
+            # Clean leading/trailing hyphens, dashes, and stray punctuation
+            cleaned = re.sub(r"^[-_–—.,!?:;\"'()\[\]{}]+|[-_–—.,!?:;\"'()\[\]{}]+$", "", raw).upper()
+            w_text = cleaned if cleaned else raw.upper()
             w_len = draw.textlength(w_text, font=self.font)
             word_spacings.append((w_text, w_len))
             total_text_width += w_len
@@ -72,23 +79,25 @@ class CaptionStyler:
         start_x = (width - total_text_width) / 2
         y_pos = (height - self.fmt["font_size"]) / 2
 
-        # Optional: Render dark rounded pill backdrop for contrast
-        pill_pad_x = 28
-        pill_pad_y = 12
-        pill_box = [
-            start_x - pill_pad_x,
-            y_pos - pill_pad_y,
-            start_x + total_text_width + pill_pad_x,
-            y_pos + self.fmt["font_size"] + pill_pad_y + 10,
-        ]
-        draw.rounded_rectangle(pill_box, radius=18, fill=(0, 0, 0, 160))
-
-        # Draw each word with stroke & color
+        # Draw each word with 3D drop shadow and thick outline
         curr_x = start_x
+        shadow_offset_x = 5
+        shadow_offset_y = 6
+
         for idx, (w_text, w_len) in enumerate(word_spacings):
             color = self.highlight_color if idx == active_index else self.base_color
 
-            # Draw stroke for maximum contrast
+            # 1. Solid drop shadow for 3D sticker pop (replaces ugly background box)
+            draw.text(
+                (curr_x + shadow_offset_x, y_pos + shadow_offset_y),
+                w_text,
+                font=self.font,
+                fill=(0, 0, 0, 220),
+                stroke_width=self.stroke_width + 1,
+                stroke_fill=(0, 0, 0, 220),
+            )
+
+            # 2. Main text with bold outline and vivid fill
             draw.text(
                 (curr_x, y_pos),
                 w_text,
@@ -97,6 +106,7 @@ class CaptionStyler:
                 stroke_width=self.stroke_width,
                 stroke_fill=self.stroke_color,
             )
+
             curr_x += w_len + space_width
 
         return img

@@ -67,15 +67,15 @@ class ScriptAnalyzer:
         sentences = re.split(r"(?<=[.!?]) +", clean_text)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 5]
 
-        # Determine target scene count
-        # For Reels: 3-5 scenes (~10-15s per scene)
+        # Determine target scene count for fast, engaging pacing
+        # For Reels: 3-6 punchy scenes (~3-4s per scene)
         # For Long videos: 6-12 scenes
         num_scenes = max(3, min(len(sentences), 5 if category == "reel" else 10))
         if not sentences:
             sentences = [
-                "Welcome to this exciting update that you cannot afford to miss.",
-                "Here is the core breakthrough that changes everything you know.",
-                "Make sure to follow and share this for more amazing insights.",
+                "Here is the secret of high performance creator agents.",
+                "Automated visual synthesis with instant studio voice-overs.",
+                "Viral highlighted captions that anyone can build in seconds.",
             ]
             num_scenes = 3
 
@@ -89,16 +89,33 @@ class ScriptAnalyzer:
             if not scene_text:
                 continue
 
-            # Generate descriptive visual prompt based on scene text
-            words = [w for w in re.findall(r"\b[A-Za-z]{4,}\b", scene_text)]
-            key_subject = " ".join(words[:4]) if words else "modern creative visuals"
-            visual_prompt = f"cinematic high quality commercial shot of {key_subject}, professional 4k lighting, vibrant colors"
+            # Build intelligent, context-aware visual prompt
+            lower_text = scene_text.lower()
+            if any(k in lower_text for k in ["secret", "performance", "creator", "agent", "ai", "automated"]):
+                core_concept = "futuristic creative digital agency workspace, holographic AI assistant interface with glowing metrics, sleek Apple minimalist studio, cinematic volumetric lighting"
+            elif any(k in lower_text for k in ["voice", "audio", "studio", "mic", "sound"]):
+                core_concept = "high-end Shure studio microphone with warm amber backlighting, acoustic sound studio, shallow depth of field"
+            elif any(k in lower_text for k in ["caption", "viral", "content", "tiktok", "reel", "youtube"]):
+                core_concept = "modern smartphone floating displaying viral video metrics and analytics, dynamic purple and cyan rim lighting, dark aesthetic background"
+            elif any(k in lower_text for k in ["marketing", "campaign", "business", "money", "grow"]):
+                core_concept = "futuristic stock market and analytics digital screens, modern luxury glass office overlooking city skyline at dusk"
+            else:
+                stopwords = {"this", "that", "with", "from", "here", "have", "make", "also", "come", "will", "what", "when", "into", "your"}
+                clean_words = [w for w in re.findall(r"\b[A-Za-z]{4,}\b", scene_text) if w.lower() not in stopwords]
+                subj = " ".join(clean_words[:3]) if clean_words else "modern digital innovation"
+                core_concept = f"commercial shot of {subj}, modern aesthetic studio setup"
+
+            visual_prompt = (
+                f"{core_concept}, 8k resolution, photorealistic, 3D Octane render, "
+                f"luxury minimalist aesthetic, hyper-detailed, award-winning cinematography, "
+                f"sharp focus, masterpiece, no anime, no cartoon, no text, no watermark"
+            )
 
             scenes.append({
                 "scene_id": i + 1,
                 "narration": scene_text,
                 "visual_prompt": visual_prompt,
-                "keywords": words[:3],
+                "keywords": [w for w in re.findall(r"\b[A-Za-z]{4,}\b", scene_text)][:3],
             })
 
         title = sentences[0][:50] if sentences else "Creative Video Production"

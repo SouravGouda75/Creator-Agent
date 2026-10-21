@@ -21,18 +21,18 @@ FORMATS = {
         "width": 1080,
         "height": 1920,
         "fps": 30,
-        "caption_y_pos": 0.52,  # Near middle / upper third for TikTok/Reels style
-        "font_size": 68,
-        "words_per_batch": 3,   # Snappy 2-4 words per caption card
+        "caption_y_pos": 0.70,  # Optimal TikTok/Reels safe zone (lower-third, above UI)
+        "font_size": 72,
+        "words_per_batch": 3,   # Snappy 2-3 words per caption card
     },
     "video": {
         "name": "Standard YouTube Video (16:9)",
         "width": 1920,
         "height": 1080,
         "fps": 30,
-        "caption_y_pos": 0.82,  # Lower third
-        "font_size": 52,
-        "words_per_batch": 5,
+        "caption_y_pos": 0.80,  # Lower third
+        "font_size": 56,
+        "words_per_batch": 4,
     }
 }
 

@@ -66,7 +66,11 @@ class CreatorAgent:
         for i in range(num_scenes):
             sub_words = words_found[i * chunk_size : (i + 1) * chunk_size]
             prompt_theme = " ".join(sub_words[:4]) if sub_words else "creative modern dynamic aesthetic"
-            visual_prompt = f"cinematic commercial shot of {prompt_theme}, vibrant lighting, 4k ultra-detailed"
+            visual_prompt = (
+                f"cinematic commercial shot of {prompt_theme}, 8k resolution, photorealistic, 3D Octane render, "
+                f"luxury minimalist aesthetic, hyper-detailed, award-winning cinematography, "
+                f"sharp focus, masterpiece, no anime, no cartoon, no text, no watermark"
+            )
             
             console.print(f"  - Generating Scene {i+1}: [italic]{prompt_theme}[/italic]")
             img_path = self.visual_engine.prepare_visual(visual_prompt, category=category, scene_id=i + 1)
